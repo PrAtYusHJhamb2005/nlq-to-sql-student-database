@@ -1,0 +1,287 @@
+* {
+  box-sizing: border-box;
+}
+
+:root {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #161616;
+  background: #f3f3f3;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+}
+
+button, textarea, select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled, textarea:disabled, select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.page {
+  width: min(1120px, 100%);
+  margin: 0 auto;
+  padding: 34px 24px 22px;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.kicker {
+  font-size: 11px;
+  letter-spacing: 1.6px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+h1 {
+  font-size: clamp(28px, 4vw, 38px);
+  letter-spacing: -1.1px;
+  margin: 0 0 8px;
+}
+
+.header p {
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #d4d4d4;
+  background: white;
+  border-radius: 5px;
+  padding: 8px 10px;
+  font-size: 10px;
+  letter-spacing: 1px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  background: #222;
+  display: inline-block;
+  border-radius: 50%;
+}
+
+.status.busy .dot {
+  background: #888;
+}
+
+.panel {
+  background: #fff;
+  border: 1px solid #d8d8d8;
+  border-radius: 8px;
+  margin-bottom: 18px;
+  overflow: hidden;
+}
+
+.input-panel {
+  padding: 20px;
+}
+
+label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+textarea {
+  width: 100%;
+  resize: vertical;
+  padding: 13px;
+  color: #111;
+  background: #fcfcfc;
+  border: 1px solid #cfcfcf;
+  border-radius: 5px;
+  outline: none;
+  line-height: 1.5;
+}
+
+textarea:focus, select:focus {
+  border-color: #555;
+}
+
+.controls {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.role-control {
+  width: 180px;
+}
+
+.role-control label {
+  margin-bottom: 6px;
+}
+
+select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  background: white;
+}
+
+.controls button {
+  background: #111;
+  color: white;
+  border: 1px solid #111;
+  border-radius: 5px;
+  padding: 11px 18px;
+  font-weight: 600;
+}
+
+.controls button:hover:not(:disabled) {
+  background: #333;
+}
+
+.examples {
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid #e5e5e5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.examples > span {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #666;
+  margin-right: 5px;
+}
+
+.examples button {
+  text-align: left;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  background: #fafafa;
+  color: #333;
+  padding: 7px 9px;
+  font-size: 11px;
+}
+
+.examples button:hover:not(:disabled) {
+  background: #eee;
+  border-color: #aaa;
+}
+
+.terminal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 16px;
+  border-bottom: 1px solid #ddd;
+  background: #fafafa;
+}
+
+.terminal-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.terminal-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #222;
+}
+
+.clear {
+  padding: 6px 8px;
+  border: 1px solid #d5d5d5;
+  background: white;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.terminal {
+  margin: 0;
+  padding: 19px;
+  height: min(58vh, 600px);
+  min-height: 300px;
+  overflow: auto;
+  background: #111;
+  color: #f2f2f2;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: 12px/1.75 "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+}
+
+.terminal-footer {
+  padding: 10px 15px;
+  border-top: 1px solid #ddd;
+  font-size: 10px;
+  color: #666;
+  background: #fafafa;
+}
+
+code {
+  font-family: "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+}
+
+footer {
+  text-align: center;
+  color: #777;
+  font-size: 11px;
+  padding: 5px 0;
+}
+
+@media (max-width: 600px) {
+  .page {
+    padding: 22px 12px;
+  }
+
+  .header {
+    flex-direction: column;
+  }
+
+  .controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .role-control {
+    width: 100%;
+  }
+
+  .controls button {
+    width: 100%;
+  }
+
+  .terminal {
+    font-size: 11px;
+    padding: 12px;
+  }
+}

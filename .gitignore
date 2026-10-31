@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+
+# Jupyter and testing
+.ipynb_checkpoints/
+.pytest_cache/
+
+# React / Node
+node_modules/
+frontend/node_modules/
+frontend/dist/
+
+# IDE and OS
+.vscode/
+.idea/
+.DS_Store
+
+# Logs
+*.log
+
+# Archives
+Archive.zip
