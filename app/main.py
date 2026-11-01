@@ -9,49 +9,13 @@ from app.executor import execute_sql
 from app.narrator import generate_natural_language_answer
 
 
-def main():
-    print("\n========== DATABASE CONNECTION ==========\n")
-
-    test_connection()
-
-    print("\n========== LOADING DATABASE SCHEMA ==========\n")
-
-    try:
-        full_schema = get_database_schema()
-    except Exception as e:
-        print("Could not load the database schema.")
-        print("Error:", e)
-        return
-
-    print(f"Total tables discovered: {len(full_schema)}")
-
-    # DEVELOPMENT ONLY: this is not real authentication.
-    print("\n========== DEVELOPMENT ROLE SELECTION ==========\n")
-    print("Available demo roles: admin, faculty, student")
-
-    role = input("Select demo role: ").strip().lower()
-
-    if role not in VALID_ROLES:
-        print("Invalid role. Access denied.")
-        return
-
-    print(f"Demo role selected: {role}")
-
-    question = input(
-        "\nAsk a question about the student database: "
-    ).strip()
-
-    if not question:
-        print("Please enter a question.")
-        return
+def process_question(question, role, full_schema):
+    """Process one question through the existing three-tier pipeline."""
 
     print("\n========== SCHEMA MAPPING ==========\n")
 
     try:
-        relevant_schema = get_relevant_schema(
-            question,
-            full_schema,
-        )
+        relevant_schema = get_relevant_schema(question, full_schema)
     except Exception as e:
         print("Schema mapping failed.")
         print("Error:", e)
@@ -103,7 +67,6 @@ def main():
         return
 
     validated_sql = validation_result
-
     print("SQL safety validation passed.")
 
     print("\n========== TIER 2B: ACCESS CONTROL ==========\n")
@@ -165,8 +128,84 @@ def main():
         print(rows)
         return
 
-    print("Final Answer:")
+    print("\nFinal Answer:")
     print(answer)
+
+
+def main():
+    print("\n========== DATABASE CONNECTION ==========\n")
+    test_connection()
+
+    print("\n========== LOADING DATABASE SCHEMA ==========\n")
+
+    try:
+        full_schema = get_database_schema()
+    except Exception as e:
+        print("Could not load the database schema.")
+        print("Error:", e)
+        return
+
+    print(f"Total tables discovered: {len(full_schema)}")
+
+    print("\n========== DEVELOPMENT ROLE SELECTION ==========\n")
+    print("Available demo roles: admin, faculty, student")
+
+    try:
+        role = input("Select demo role: ").strip().lower()
+    except EOFError:
+        print("\nNo input received. Exiting.")
+        return
+
+    if role not in VALID_ROLES:
+        print("Invalid role. Access denied.")
+        return
+
+    print(f"\nDemo role selected: {role}")
+
+    print("\n========== CONTINUOUS QUERY SESSION ==========")
+    print("You can ask multiple questions in this session.")
+    print("Type 'no', 'exit' or 'quit' when asked to continue.")
+
+    while True:
+        try:
+            question = input(
+                "\nAsk a question about the student database: "
+            ).strip()
+        except EOFError:
+            # The web API sends one question and closes stdin.
+            # Exit cleanly instead of waiting for another question.
+            print("\nInput stream closed. Ending session.")
+            break
+
+        if not question:
+            print("Please enter a valid question.")
+            continue
+
+        if question.lower() in {"no", "exit", "quit"}:
+            print("Ending query session.")
+            break
+
+        process_question(question, role, full_schema)
+
+        print("\n" + "=" * 55)
+
+        try:
+            continue_choice = input(
+                "\nWould you like to ask another question? (yes/no): "
+            ).strip().lower()
+        except EOFError:
+            print("\nRequest completed. Ending session.")
+            break
+
+        if continue_choice in {"no", "n", "exit", "quit"}:
+            print("Thank you! Query session ended.")
+            break
+
+        if continue_choice in {"yes", "y"}:
+            continue
+
+        print("Unrecognised response. Ending session.")
+        break
 
 
 if __name__ == "__main__":
