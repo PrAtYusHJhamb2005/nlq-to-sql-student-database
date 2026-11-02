@@ -1,4 +1,3 @@
-
 import { useRef, useState } from "react";
 
 const examples = [
@@ -13,7 +12,7 @@ export default function App() {
   const [role, setRole] = useState("admin");
 
   const [output, setOutput] = useState(
-    "Ready.\n\nStart by entering your first question."
+    "Ready.\\n\\nStart by entering your first question."
   );
 
   const [running, setRunning] = useState(false);
@@ -28,7 +27,7 @@ export default function App() {
 
     if (!question.trim() || running || sessionEnded) return;
 
-    const currentQuestion = question.trim();
+    const currentQuestion = question.replace(/\\s+/g, " ").trim();
 
     setQuestion("");
     setRunning(true);
@@ -36,9 +35,9 @@ export default function App() {
 
     setOutput((previous) =>
       previous +
-      `\n\n${"=".repeat(55)}\n` +
-      `\nYOU: ${currentQuestion}\n\n` +
-      "Connecting to the Python pipeline...\n"
+      `\\n\\n${"=".repeat(55)}\\n` +
+      `\\nYOU: ${currentQuestion}\\n\\n` +
+      "Connecting to the Python pipeline...\\n"
     );
 
     try {
@@ -56,14 +55,14 @@ export default function App() {
       if (!response.ok) {
         const message = await response.text();
         setOutput((previous) =>
-          previous + `\nAPI ERROR (${response.status})\n${message}`
+          previous + `\\nAPI ERROR (${response.status})\\n${message}`
         );
         return;
       }
 
       if (!response.body) {
         setOutput((previous) =>
-          previous + "\nERROR: Server returned no readable output stream."
+          previous + "\\nERROR: Server returned no readable output stream."
         );
         return;
       }
@@ -100,8 +99,8 @@ export default function App() {
     } catch (error) {
       setOutput((previous) =>
         previous +
-        "\nCould not connect to the backend.\n\n" +
-        "Check that the backend is running at http://127.0.0.1:8000.\n\n" +
+        "\\nCould not connect to the backend.\\n\\n" +
+        "Check that the backend is running at http://127.0.0.1:8000.\\n\\n" +
         `Details: ${error.message}`
       );
 
@@ -122,13 +121,13 @@ export default function App() {
     setSessionEnded(true);
 
     setOutput((previous) =>
-      previous + "\n\nSESSION ENDED. Thank you for using the system."
+      previous + "\\n\\nSESSION ENDED. Thank you for using the system."
     );
   }
 
   function startNewSession() {
     setQuestion("");
-    setOutput("New session started.\n\nEnter your question.");
+    setOutput("New session started.\\n\\nEnter your question.");
     setQueryCount(0);
     setAwaitingContinue(false);
     setSessionEnded(false);
