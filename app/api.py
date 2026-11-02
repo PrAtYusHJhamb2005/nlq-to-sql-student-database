@@ -32,6 +32,11 @@ class QueryRequest(BaseModel):
     role: str = "admin"
 
 
+def normalize_question(question: str) -> str:
+    """Collapse newlines and repeated whitespace into a single space."""
+    return re.sub(r"\\s+", " ", question).strip()
+
+
 @app.get("/api/health")
 def health():
     return {
@@ -44,28 +49,29 @@ def health():
 def stream_python_output(question: str, role: str):
     """Run the real CLI and stream its stdout/stderr to the browser."""
     if not MAIN_FILE.exists():
-        yield f"ERROR: Could not find {MAIN_FILE}\n"
+        yield f"ERROR: Could not find {MAIN_FILE}\\n"
         return
 
+    question = normalize_question(question)
     source = MAIN_FILE.read_text(encoding="utf-8")
 
     # Support both versions of the CLI:
     # one that asks only for a question, and one that asks for a role first.
     role_prompt_exists = bool(
-        re.search(r"\b(?:role|user_role)\s*=\s*input\s*\(", source, re.I)
+        re.search(r"\\b(?:role|user_role)\\s*=\\s*input\\s*\\(", source, re.I)
     )
 
     if role_prompt_exists:
-        input_text = f"{role.strip()}\n{question.strip()}\n"
+        input_text = f"{role.strip()}\\n{question}\\n"
     else:
-        input_text = f"{question.strip()}\n"
+        input_text = f"{question}\\n"
 
     process = None
 
     # Avoid running two copies of the CLI at the same time.
     with RUN_LOCK:
         try:
-            yield "Starting your existing Python pipeline...\n\n"
+            yield "Starting your existing Python pipeline...\\n\\n"
 
             process = subprocess.Popen(
                 [sys.executable, "-u", "-m", "app.main"],
@@ -93,10 +99,10 @@ def stream_python_output(question: str, role: str):
                 yield line
 
             return_code = process.wait()
-            yield f"\n\n========== PROCESS FINISHED (exit code {return_code}) ==========\n"
+            yield f"\\n\\n========== PROCESS FINISHED (exit code {return_code}) ==========\\n"
 
         except Exception as exc:
-            yield f"\nBACKEND ERROR: {type(exc).__name__}: {exc}\n"
+            yield f"\\nBACKEND ERROR: {type(exc).__name__}: {exc}\\n"
 
         finally:
             if process is not None and process.poll() is None:
@@ -106,17 +112,17 @@ def stream_python_output(question: str, role: str):
 
 @app.post("/api/query")
 def run_query(payload: QueryRequest):
-    question = payload.question.strip()
+    question = normalize_question(payload.question)
 
     if not question:
         return StreamingResponse(
-            iter(["ERROR: Please enter a question.\n"]),
+            iter(["ERROR: Please enter a question.\\n"]),
             media_type="text/plain; charset=utf-8",
         )
 
     if payload.role.strip().lower() not in {"admin", "faculty", "student"}:
         return StreamingResponse(
-            iter(["ERROR: Role must be admin, faculty, or student.\n"]),
+            iter(["ERROR: Role must be admin, faculty, or student.\\n"]),
             media_type="text/plain; charset=utf-8",
         )
 
