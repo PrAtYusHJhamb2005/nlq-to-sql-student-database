@@ -113,20 +113,16 @@ def test_question_maps_to_expected_table(
             },
         ]
 
-    semantic_spy = pytest.MonkeyPatch()
-    semantic_spy.setattr(
+    monkeypatch.setattr(
         schema_mapper,
         "get_semantic_matches",
         fake_semantic_matches,
     )
 
-    try:
-        relevant_schema = schema_mapper.get_relevant_schema(
-            question,
-            full_schema,
-        )
-    finally:
-        semantic_spy.undo()
+    relevant_schema = schema_mapper.get_relevant_schema(
+        question,
+        full_schema,
+    )
 
     assert expected_table in relevant_schema
 
