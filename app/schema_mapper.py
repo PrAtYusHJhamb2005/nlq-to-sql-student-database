@@ -19,8 +19,6 @@ TABLE_KEYWORDS = {
         "roll number", "roll no", "student name", "student names",
         "date of birth", "birth date", "personal details",
         "personal information", "student id", "student ids",
-        "defaulter", "defaulters", "defaulter students",
-        "defaulter student",
     ],
     "department": [
         "department", "departments", "branch", "branches",
