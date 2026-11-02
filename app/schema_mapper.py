@@ -87,6 +87,7 @@ TABLE_KEYWORDS = {
 
 FUZZY_THRESHOLD = 85
 SEMANTIC_THRESHOLD = 0.65
+SEMANTIC_TOP_MARGIN = 0.08
 
 IGNORED_FUZZY_TOKENS = {
     "count", "students", "student", "having", "that",
@@ -102,17 +103,20 @@ def normalize_text(text):
     return re.sub(r"[^a-z0-9]+", " ", text.lower()).strip()
 
 
-def find_relevant_tables(question, schema):
-    """Identify seed tables using exact matching and RapidFuzz."""
+def find_lexical_matches(question, schema):
+    """
+    Return exact and fuzzy matches separately so the final selector
+    can give exact phrases stronger evidence than fuzzy token matches.
+    """
 
     normalized_question = normalize_text(question)
     question_tokens = normalized_question.split()
-
     actual_names = {name.lower(): name for name in schema}
-    selected = set()
+    exact_matches = set()
+    fuzzy_matches = set()
     padded_question = f" {normalized_question} "
 
-    # Pass 1: exact phrase matching
+    # Exact phrase matches are the strongest lexical signal.
     for table_key, keywords in TABLE_KEYWORDS.items():
         actual_table = actual_names.get(table_key.lower())
 
@@ -123,15 +127,17 @@ def find_relevant_tables(question, schema):
             normalized_keyword = normalize_text(keyword)
 
             if f" {normalized_keyword} " in padded_question:
-                selected.add(actual_table)
+                exact_matches.add(actual_table)
                 break
 
-    # Pass 2: spelling-tolerant fuzzy matching
+    # Fuzzy matching catches spelling variations.
     for table_key, keywords in TABLE_KEYWORDS.items():
         actual_table = actual_names.get(table_key.lower())
 
-        if actual_table is None or actual_table in selected:
+        if actual_table is None or actual_table in exact_matches:
             continue
+
+        matched = False
 
         for keyword in keywords:
             keyword_tokens = normalize_text(keyword).split()
@@ -147,31 +153,35 @@ def find_relevant_tables(question, schema):
                     if len(keyword_token) < 5:
                         continue
 
-                    score = fuzz.ratio(question_token, keyword_token)
-
-                    if score >= FUZZY_THRESHOLD:
-                        selected.add(actual_table)
+                    if fuzz.ratio(question_token, keyword_token) >= FUZZY_THRESHOLD:
+                        fuzzy_matches.add(actual_table)
+                        matched = True
                         break
 
-                if actual_table in selected:
+                if matched:
                     break
 
-            if actual_table in selected:
+            if matched:
                 break
 
-    return selected
+    return exact_matches, fuzzy_matches
 
 
-def get_semantic_fallback(question, schema):
+def find_relevant_tables(question, schema):
+    """Backward-compatible helper returning all lexical matches."""
+    exact_matches, fuzzy_matches = find_lexical_matches(question, schema)
+    return exact_matches | fuzzy_matches
+
+
+def get_semantic_matches(question, schema):
     """
-    Find semantic candidates when exact and fuzzy matching
-    have not found any tables. Return candidates above threshold.
+    Always rank schema tables semantically for the current question.
+    Table-description embeddings are cached after their first creation.
     """
 
     global _TABLE_EMBEDDINGS
 
     actual_names = {name.lower(): name for name in schema}
-
     descriptions = {
         actual_names[name.lower()]: description
         for name, description in TABLE_DESCRIPTIONS.items()
@@ -180,9 +190,8 @@ def get_semantic_fallback(question, schema):
 
     if not descriptions:
         print("No semantic descriptions match the database schema.")
-        return set()
+        return []
 
-    # Create and cache table embeddings on first use.
     if _TABLE_EMBEDDINGS is None:
         _TABLE_EMBEDDINGS = build_table_embeddings(descriptions)
 
@@ -198,25 +207,94 @@ def get_semantic_fallback(question, schema):
         embeddings,
     )
 
-    print("\nSemantic fallback candidates:")
+    print("\nSemantic ranking (top 5):")
     for match in matches[:5]:
         print(f"  {match['table']}: {match['score']:.4f}")
 
-    selected = {
-        match["table"]
-        for match in matches
-        if match["score"] >= SEMANTIC_THRESHOLD
-    }
+    return matches
 
-    if not selected:
-        print(
-            f"No candidates reached semantic threshold "
-            f"{SEMANTIC_THRESHOLD:.2f}."
-        )
+
+def select_candidate_tables(exact_matches, fuzzy_matches, semantic_matches):
+    """
+    Combine all three signals.
+
+    Exact matches are retained as the strongest lexical evidence.
+    Fuzzy-only matches are retained when semantic ranking supports them.
+    Semantic matches supplement lexical matches when they are close to
+    the best semantic score and pass the minimum similarity threshold.
+    """
+
+    selected = set(exact_matches)
+
+    if semantic_matches:
+        best_score = semantic_matches[0]["score"]
+
+        semantic_candidates = {
+            match["table"]
+            for match in semantic_matches
+            if (
+                best_score >= SEMANTIC_THRESHOLD
+                and match["score"] >= best_score - SEMANTIC_TOP_MARGIN
+                and match["score"] >= SEMANTIC_THRESHOLD
+            )
+        }
+
+        supported_fuzzy = {
+            table
+            for table in fuzzy_matches
+            if any(
+                match["table"] == table
+                and match["score"] >= SEMANTIC_THRESHOLD
+                and match["score"] >= best_score - SEMANTIC_TOP_MARGIN
+                for match in semantic_matches
+            )
+        }
+
+        selected.update(supported_fuzzy)
+        selected.update(semantic_candidates)
+
+        rejected_fuzzy = fuzzy_matches - supported_fuzzy
+        if rejected_fuzzy:
+            print(
+                "Fuzzy matches not supported by semantic ranking:",
+                sorted(rejected_fuzzy),
+            )
     else:
-        print("Semantic tables selected:", sorted(selected))
+        # If the embedding service is unavailable, retain lexical matches
+        # rather than making the entire query fail.
+        selected.update(fuzzy_matches)
+
+    print("\nMatching evidence:")
+    print("  Exact:", sorted(exact_matches))
+    print("  Fuzzy:", sorted(fuzzy_matches))
+    print(
+        "  Selected candidates:",
+        sorted(selected),
+    )
 
     return selected
+
+
+def get_semantic_fallback(question, schema):
+    """Compatibility wrapper returning confident semantic candidates."""
+    matches = get_semantic_matches(question, schema)
+
+    if not matches or matches[0]["score"] < SEMANTIC_THRESHOLD:
+        print(
+            f"No semantic candidate reached threshold "
+            f"{SEMANTIC_THRESHOLD:.2f}."
+        )
+        return set()
+
+    best_score = matches[0]["score"]
+    return {
+        match["table"]
+        for match in matches
+        if (
+            match["score"] >= SEMANTIC_THRESHOLD
+            and match["score"] >= best_score - SEMANTIC_TOP_MARGIN
+        )
+    }
 
 
 def add_student_identity_table(question, selected_tables, schema):
@@ -243,12 +321,9 @@ def add_student_identity_table(question, selected_tables, schema):
     if not (asks_who or asks_which_students):
         return selected_tables
 
-    # Do not add student identity data to unrelated faculty questions.
-    if "faculty" in selected_tables or "FACULTY" in selected_tables:
+    if any(table.lower() == "faculty" for table in selected_tables):
         return selected_tables
 
-    # Add the identity table only if another selected table contains
-    # student-related records.
     student_record_tables = {
         "fees_details",
         "attendance_details",
@@ -313,31 +388,30 @@ def shortest_path(graph, start, target):
 
 def get_relevant_schema(question, full_schema):
     """
-    Select relevant tables, add student identity when appropriate,
-    and include shortest foreign-key paths between selected tables.
+    Run exact, fuzzy, and semantic matching for every question,
+    combine their evidence, then add identity and FK bridge tables.
     """
 
-    seed_tables = find_relevant_tables(question, full_schema)
+    exact_matches, fuzzy_matches = find_lexical_matches(
+        question,
+        full_schema,
+    )
 
-    if seed_tables:
-        print("\nExact/fuzzy matching selected:")
-        for table in sorted(seed_tables):
-            print(f"  {table}")
-    else:
-        print(
-            "\nExact/fuzzy matching found no tables. "
-            "Trying semantic matching..."
-        )
+    try:
+        semantic_matches = get_semantic_matches(question, full_schema)
+    except (ValueError, KeyError, requests.RequestException) as error:
+        print(f"Semantic matching failed: {error}")
+        semantic_matches = []
 
-        try:
-            seed_tables = get_semantic_fallback(question, full_schema)
-        except (ValueError, KeyError, requests.RequestException) as error:
-            print(f"Semantic matching failed: {error}")
-            seed_tables = set()
+    seed_tables = select_candidate_tables(
+        exact_matches,
+        fuzzy_matches,
+        semantic_matches,
+    )
 
-        if not seed_tables:
-            print("No reliable match; returning the full schema.")
-            return full_schema
+    if not seed_tables:
+        print("No reliable match; returning the full schema.")
+        return full_schema
 
     seed_tables = add_student_identity_table(
         question,
