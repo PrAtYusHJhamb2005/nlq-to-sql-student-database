@@ -5,3 +5,7 @@ pymysql
 python-dotenv
 ollama
 sqlglot
+numpy
+rapidfuzz
+requests
+pytest
